@@ -1,5 +1,5 @@
+cat > .coderabbit.yaml <<'EOF'
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-# Put this file in the repo root and merge it to the default branch.
 reviews:
   profile: chill
   path_filters:
@@ -11,13 +11,13 @@ reviews:
         Flag any new dependency unless Node 20 built-ins or an existing dependency cannot do the job.
     - path: "backend/src/**"
       instructions: |
-        Project rules (see media/architecture-context.md and media/code-standards.md):
+        Project rules:
         - Only backend/src/services/nextcloud.js may call Nextcloud.
         - Use `lastLogin` (milliseconds) as the login value. Do not mix it with `lastLoginTimestamp` (seconds).
         - Inactivity means no login. Never describe or implement it as file activity.
         - Every lifecycle state change must write a lifecycle_history row, in the same transaction as the status update.
-        - Flag any route that changes state without admin authentication. Authentication is not implemented yet, so flag new unauthenticated mutating routes.
-        - Only call Nextcloud endpoints marked verified in media/architecture-context.md.
+        - Every route that changes state must go through the admin token middleware (backend/src/middleware/adminAuth.js). Flag any new mutating route without it.
+        - Only call Nextcloud endpoints that were tested against a real instance. Flag untested calls such as disable user, delete user or share expireDate changes.
     - path: "backend/src/controllers/**"
       instructions: |
         Check that input is validated before any logic runs, errors return `{ "error": "message" }` with the right status code, and controllers stay thin.
@@ -27,8 +27,11 @@ reviews:
     - path: "backend/src/db/**"
       instructions: |
         Parameterized queries only, never string-built SQL. Status values must match the CHECK constraint in schema.sql.
-        schema.sql runs only on first database creation, so flag schema changes that do not update the data model in media/architecture-context.md.
+        schema.sql runs only on first database creation, so flag schema changes that come without a migration or a note in docs/.
     - path: "backend/src/jobs/**"
       instructions: |
         Jobs must be idempotent. A failure on one guest must not stop the check for the others.
         Flag logic that re-flags a guest after a Keep or Renew decision.
+EOF
+git diff --stat
+git grep -n -iE 'media/|AGENTS|CLAUDE|Context/|HANDOFF'
